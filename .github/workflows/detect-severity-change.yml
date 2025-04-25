@@ -3,7 +3,11 @@ name: Detect Severity Label Change
 on:
   issues:
     types:
-      - edited
+      - labeled
+      - unlabeled
+
+permissions:
+  issues: write
 
 jobs:
   detect-severity-change:
@@ -14,6 +18,9 @@ jobs:
 
     - name: Install jq
       run: sudo apt-get install -y jq
+
+    - name: Debug event payload
+      run: cat $GITHUB_EVENT_PATH
 
     - name: Check for severity label changes
       id: check-label
