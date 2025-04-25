@@ -61,10 +61,14 @@ jobs:
 
     - name: Notify user on severity label addition
       if: env.severity_added == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh issue comment ${{ github.event.issue.number }} --body "Attention @QuamrulSiddiqui, a severity label has been **added** to this issue!"
 
     - name: Notify user on severity label removal
       if: env.severity_removed == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         gh issue comment ${{ github.event.issue.number }} --body "Attention @QuamrulSiddiqui, a severity label has been **removed** from this issue!"
