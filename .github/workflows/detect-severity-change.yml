@@ -22,7 +22,7 @@ jobs:
     - name: Debug event payload
       run: cat $GITHUB_EVENT_PATH
 
-    - name: Check severity label addition or removal
+    - name: Check for severity label changes
       id: check-label
       run: |
         set -euxo pipefail
@@ -30,31 +30,39 @@ jobs:
         # Fetch the event payload
         payload=$(cat $GITHUB_EVENT_PATH)
 
-        # Extract the label being added or removed
-        label_name=$(echo "$payload" | jq -r '.label.name // empty')
+        # Extract current and previous labels safely
+        previous_labels=$(echo "$payload" | jq -r '.changes.labels.from[]?.name // empty')
+        current_labels=$(echo "$payload" | jq -r '.issue.labels[].name // empty')
 
         # Define severity labels
         severity_labels=("Severity-1" "Severity-2" "Severity-3" "Severity-4")
 
-        # Initialize variable
-        notify=false
+        # Initialize variables
+        severity_added=false
+        severity_removed=false
 
-        # Check if the label is a severity label
-        if [[ " ${severity_labels[@]} " =~ " $label_name " ]]; then
-          notify=true
-        fi
+        # Check if any severity label was added or removed
+        for label in "${severity_labels[@]}"; do
+          if [[ ! "$previous_labels" =~ $label && "$current_labels" =~ $label ]]; then
+            severity_added=true
+          elif [[ "$previous_labels" =~ $label && ! "$current_labels" =~ $label ]]; then
+            severity_removed=true
+          fi
+        done
 
-        # Output result
-        echo "notify=$notify" >> $GITHUB_ENV
-        echo "label_name=$label_name" >> $GITHUB_ENV
+        # Output results
+        echo "severity_added=$severity_added" >> $GITHUB_ENV
+        echo "severity_removed=$severity_removed" >> $GITHUB_ENV
 
-    - name: Notify user on severity label change (addition or removal)
-      if: env.notify == 'true'
+    - name: Debugging Logs
+      run: |
+        echo "Previous Labels: $previous_labels"
+        echo "Current Labels: $current_labels"
+
+    - name: Notify user on severity label addition
+      if: env.severity_added == 'true'|| env.severity_removed == 'true'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if [[ "$GITHUB_EVENT_NAME" == "labeled" ]]; then
-          gh issue comment ${{ github.event.issue.number }} --body "Attention @QuamrulSiddiqui, the **$label_name** severity label has been **added** to this issue! Please update the same in the project board"
-        elif [[ "$GITHUB_EVENT_NAME" == "unlabeled" ]]; then
-          gh issue comment ${{ github.event.issue.number }} --body "Attention @QuamrulSiddiqui, the **$label_name** severity label has been **removed** from this issue! Please update the same in the project board"
-        fi
+        gh issue comment ${{ github.event.issue.number }} --body "Attention @QuamrulSiddiqui, a severity label has been **Updated** to this issue! Please update the same in the project board"
+
